@@ -1,0 +1,10 @@
+# Lean runtime deps for the monthly pipeline (no torch).
+numpy>=1.26,<3
+scipy>=1.11
+xarray>=2024.1
+dask[array]>=2024.1
+rasterio>=1.3.10
+rioxarray>=0.15
+pystac-client>=0.7
+planetary-computer>=1.0
+stackstac>=0.5.1
