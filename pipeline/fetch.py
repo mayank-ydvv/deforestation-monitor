@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 import calendar
+import sys
 import time
 import warnings
 from collections.abc import Sequence
@@ -28,8 +29,16 @@ from pipeline import config as cfg
 
 CACHE_NODATA = 65535  # composites are cached as uint16 reflectance x 10000
 GDAL_ENV = stackstac.DEFAULT_GDAL_ENV.updated(
-    always={"GDAL_HTTP_MAX_RETRY": "5", "GDAL_HTTP_RETRY_DELAY": "2"}
+    always={
+        "GDAL_HTTP_MAX_RETRY": "5",
+        "GDAL_HTTP_RETRY_DELAY": "2",
+        # Fail a stalled request (< 5 kB/s for 60 s) instead of hanging; composite() retries.
+        "GDAL_HTTP_TIMEOUT": "120",
+        "GDAL_HTTP_LOW_SPEED_LIMIT": "5000",
+        "GDAL_HTTP_LOW_SPEED_TIME": "60",
+    }
 )
+READ_ERRORS = (RuntimeError, rasterio.errors.RasterioIOError)  # stackstac wraps GDAL errors
 
 
 class Composite(NamedTuple):
@@ -189,13 +198,24 @@ def composite(
     """
     if cache_path is not None and cache_path.exists():
         return read_cache(cache_path)
-    items = select_items(search_items(bbox, date_range))
-    if not items:
-        raise NoScenesError(f"No scenes < {cfg.MAX_SCENE_CLOUD}% cloud for {date_range}")
-    with warnings.catch_warnings():  # pixels with no clear scene stay NaN, by design
-        warnings.filterwarnings("ignore", "All-NaN slice", RuntimeWarning)
-        data = _median_composite(items, bbox, epsg).compute()
-    comp = Composite(data, clear_fraction(data), len(items))
+    for attempt in range(1, cfg.FETCH_ATTEMPTS + 1):
+        items = select_items(search_items(bbox, date_range))  # re-signed every attempt
+        if not items:
+            raise NoScenesError(f"No scenes < {cfg.MAX_SCENE_CLOUD}% cloud for {date_range}")
+        try:
+            with warnings.catch_warnings():  # pixels with no clear scene stay NaN, by design
+                warnings.filterwarnings("ignore", "All-NaN slice", RuntimeWarning)
+                data = _median_composite(items, bbox, epsg).compute()
+            break
+        except READ_ERRORS as err:
+            if attempt == cfg.FETCH_ATTEMPTS:
+                raise
+            print(
+                f"  read failed for {date_range} (attempt {attempt}/{cfg.FETCH_ATTEMPTS}): "
+                f"{str(err).splitlines()[0][:120]}; retrying",
+                file=sys.stderr,
+            )
+    comp = Composite(data.rio.write_crs(epsg), clear_fraction(data), len(items))
     if cache_path is not None:
         write_cache(comp, cache_path, epsg)
     return comp

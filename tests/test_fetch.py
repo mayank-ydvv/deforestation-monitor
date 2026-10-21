@@ -94,3 +94,44 @@ def test_cache_roundtrip(tmp_path):
     np.testing.assert_allclose(back.data.x.values, data.x.values)
     np.testing.assert_allclose(back.data.y.values, data.y.values)
     assert back.data.rio.crs.to_epsg() == 32644
+
+
+def _fake_composite(*_args):
+    data = xr.DataArray(
+        np.ones((len(cfg.BANDS), 2, 2), dtype="float32"),
+        dims=("band", "y", "x"),
+        coords={"band": list(cfg.BANDS), "y": [15.0, 5.0], "x": [5.0, 15.0]},
+    )
+    return data
+
+
+def test_composite_retries_after_read_error(monkeypatch):
+    items = [SimpleNamespace(datetime=datetime(2025, 1, 1), properties={"eo:cloud_cover": 1})]
+    searches, calls = [], []
+    monkeypatch.setattr(fetch, "search_items", lambda *a: searches.append(a) or items)
+
+    def flaky(*args):
+        calls.append(args)
+        if len(calls) == 1:
+            raise RuntimeError("Error reading Window(...): TIFFReadEncodedTile() failed")
+        return _fake_composite()
+
+    monkeypatch.setattr(fetch, "_median_composite", flaky)
+    comp = fetch.composite((0, 0, 1, 1), "2025-01-01/2025-01-31", 32644)
+    assert len(calls) == 2 and len(searches) == 2  # items re-signed for the retry
+    assert comp.clear_fraction == 1.0 and comp.data.rio.crs.to_epsg() == 32644
+
+
+def test_composite_gives_up_after_max_attempts(monkeypatch):
+    items = [SimpleNamespace(datetime=datetime(2025, 1, 1), properties={"eo:cloud_cover": 1})]
+    monkeypatch.setattr(fetch, "search_items", lambda *a: items)
+    calls = []
+
+    def broken(*args):
+        calls.append(args)
+        raise RuntimeError("stalled")
+
+    monkeypatch.setattr(fetch, "_median_composite", broken)
+    with pytest.raises(RuntimeError):
+        fetch.composite((0, 0, 1, 1), "2025-01-01/2025-01-31", 32644)
+    assert len(calls) == cfg.FETCH_ATTEMPTS
