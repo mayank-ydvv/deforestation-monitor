@@ -11,3 +11,6 @@ tiles/
 models/*.onnx
 web/node_modules/
 web/dist/
+# Large rasters: uploaded to the raster store, not committed
+web/public/data/*/*/forest.tif
+web/public/data/*/*/rgb/
