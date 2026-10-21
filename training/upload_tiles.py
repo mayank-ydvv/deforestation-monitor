@@ -1,10 +1,11 @@
 """Publish the training tiles (+ norm stats and the code train.ipynb needs) to Hugging Face.
 
-    huggingface-cli login            # once, with a write token
+    hf auth login                    # once, with a write token (older hub: huggingface-cli login)
     python -m training.upload_tiles --repo <user>/deforestation-monitor-tiles
 
-Uses ``upload_large_folder``, which is resumable: if the connection drops, run it again and
-it continues where it stopped. Layout of the dataset repo:
+Resumable on both huggingface_hub generations (``upload_large_folder`` on 0.x, the batching
+``upload_folder`` on 2.x): if the connection drops, run it again and it continues where it
+stopped. Layout of the dataset repo:
 
     manifest.csv, <aoi>/<month>/{X,Y}_*.npy     tiles (as in tiles/)
     norm_stats.json                             per-channel mean/std (train split)
@@ -58,6 +59,26 @@ def stage_extras(dest: Path) -> None:
         shutil.copy2(cfg.ROOT / rel, target)
 
 
+TILE_PATTERNS = ["manifest.csv", "*/*/*.npy", "*/*/*.json", "*/*/*.csv"]
+
+
+def publish(api, repo: str, private: bool = False, tiles_dir: Path | None = None) -> None:
+    """Create the dataset repo, upload extras, then the tiles with the resumable uploader."""
+    api.create_repo(repo, repo_type="dataset", private=private, exist_ok=True)
+    with tempfile.TemporaryDirectory() as tmp:
+        extras = Path(tmp)
+        stage_extras(extras)
+        api.upload_folder(repo_id=repo, repo_type="dataset", folder_path=extras)
+    # 0.x has a dedicated resumable uploader; 2.x folded batching + resume into upload_folder.
+    upload = getattr(api, "upload_large_folder", None) or api.upload_folder
+    upload(
+        repo_id=repo,
+        repo_type="dataset",
+        folder_path=tiles_dir or cfg.TILES_DIR,
+        allow_patterns=TILE_PATTERNS,
+    )
+
+
 def main(argv: Sequence[str] | None = None) -> None:
     """CLI entry point."""
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
@@ -67,18 +88,7 @@ def main(argv: Sequence[str] | None = None) -> None:
 
     from huggingface_hub import HfApi
 
-    api = HfApi()
-    api.create_repo(args.repo, repo_type="dataset", private=args.private, exist_ok=True)
-    with tempfile.TemporaryDirectory() as tmp:
-        extras = Path(tmp)
-        stage_extras(extras)
-        api.upload_folder(repo_id=args.repo, repo_type="dataset", folder_path=extras)
-    api.upload_large_folder(
-        repo_id=args.repo,
-        repo_type="dataset",
-        folder_path=cfg.TILES_DIR,
-        allow_patterns=["manifest.csv", "*/*/*.npy", "*/*/*.json", "*/*/*.csv"],
-    )
+    publish(HfApi(), args.repo, args.private)
     print(f"Uploaded to https://huggingface.co/datasets/{args.repo}")
 
 
