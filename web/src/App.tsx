@@ -1,19 +1,21 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import ClearedLayer from "./components/ClearedLayer";
 import DateRangeSlider from "./components/DateRangeSlider";
 import MapView from "./components/MapView";
 import Panel from "./components/Panel";
+import PatchPopup from "./components/PatchPopup";
 import RegionPicker from "./components/RegionPicker";
 import { useAoiData } from "./hooks/useAoiData";
 import { getJson } from "./lib/data";
-import type { Aoi } from "./lib/types";
+import type { Aoi, ClearedFeature } from "./lib/types";
 
 export default function App() {
   const [aois, setAois] = useState<Aoi[]>([]);
   const [aoiId, setAoiId] = useState<string>("");
   const [range, setRange] = useState<{ before: string; after: string }>({ before: "", after: "" });
   const [error, setError] = useState<string | null>(null);
+  const [selected, setSelected] = useState<{ feature: ClearedFeature; at: [number, number] } | null>(null);
 
   useEffect(() => {
     getJson<Aoi[]>("aois.json")
@@ -32,11 +34,18 @@ export default function App() {
   }, [aoi]);
 
   const data = useAoiData(aoi, range.before, range.after);
+  const onSelect = useCallback((feature: ClearedFeature, at: [number, number]) => setSelected({ feature, at }), []);
+
+  // A new region or date range invalidates the open popup.
+  useEffect(() => setSelected(null), [aoiId, range]);
 
   return (
     <div className="relative h-full w-full">
       <MapView aoi={aoi}>
-        <ClearedLayer features={data.features} />
+        <ClearedLayer features={data.features} onSelect={onSelect} />
+        {selected && (
+          <PatchPopup feature={selected.feature} position={selected.at} onClose={() => setSelected(null)} />
+        )}
       </MapView>
       <Panel>
         {error && <p role="alert" className="text-sm text-red-300">Could not load regions: {error}</p>}
