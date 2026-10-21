@@ -26,6 +26,8 @@ export default function ForestLayer({ url, onError }: { url: string; onError?: (
         georaster,
         opacity: 1,
         resolution: 256,
+        zIndex: 10, // above the before/after imagery (zIndex 5) so the mask stays visible
+
         pixelValuesToColorFn: (values: number[]) => (values[0] === 1 ? FOREST_RGBA : null),
       });
       layer.addTo(map);
