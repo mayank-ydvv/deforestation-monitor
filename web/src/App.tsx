@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useState } from "react";
 
 import ClearedLayer from "./components/ClearedLayer";
 import DateRangeSlider from "./components/DateRangeSlider";
@@ -12,6 +12,9 @@ import SwipeCompare from "./components/SwipeCompare";
 import { useAoiData } from "./hooks/useAoiData";
 import { getJson, rasterUrl } from "./lib/data";
 import type { Aoi, ClearedFeature } from "./lib/types";
+
+// Recharts is ~100 kB gzipped: load the stats panel after first paint.
+const StatsPanel = lazy(() => import("./components/StatsPanel"));
 
 export default function App() {
   const [aois, setAois] = useState<Aoi[]>([]);
@@ -74,6 +77,22 @@ export default function App() {
           />
         )}
         {aoi && <LayerToggles value={layers} onChange={setLayers} />}
+        {aoi && (
+          <Suspense fallback={<div className="h-36 animate-pulse rounded-lg bg-slate-800/60" />}>
+            <StatsPanel
+              index={data.index}
+              before={range.before}
+              after={range.after}
+              hectares={data.hectares}
+              patches={data.features.length}
+            />
+          </Suspense>
+        )}
+        {data.error && (
+          <p role="alert" className="text-sm text-red-300">
+            Could not load clearing data: {data.error}
+          </p>
+        )}
       </Panel>
     </div>
   );
