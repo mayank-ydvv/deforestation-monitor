@@ -2,7 +2,7 @@
 
 A web app that shows on an interactive map where forest was cleared between two dates, using free Sentinel-2 imagery, a U-Net forest-segmentation model and multi-date change detection, updated monthly at ₹0 hosting cost.
 
-> Work in progress: **Phase 1 (data)**, **Phase 2 (labels and tiles)** and **Phase 3 (training)** are in place. Full README (live link, metrics, architecture, cost, limitations, attributions) lands in Phase 6.
+> Work in progress: **Phase 1 (data)**, **Phase 2 (labels and tiles)**, **Phase 3 (training)** and **Phase 4 (change detection)** are in place. Full README (live link, metrics, architecture, cost, limitations, attributions) lands in Phase 6.
 
 ## Setup
 
@@ -70,7 +70,25 @@ uv pip install -p .venv/bin/python -r requirements-infer.txt -r requirements-dev
 
 - Local smoke test without a GPU: `uv venv -p 3.11 .venv-train && uv pip install -p .venv-train/bin/python -r requirements-train.txt pytest`, then `.venv-train/bin/python -m pytest tests/test_train.py`. Torch stays out of `.venv` (the inference environment).
 
+## Phase 4: change detection and export
+
+```bash
+# One AOI, one before/after pair: composites -> forest probability -> cleared patches -> data contract
+.venv/bin/python -m pipeline.process --aoi hasdeo --t1 2025-01 --t2 2026-01
+
+# Validate against Hansen GFC loss (merged into web/public/data/metrics.json)
+.venv/bin/python -m training.evaluate --hansen hasdeo:2025-01:2026-01:2025 rondonia:2024-07:2025-07:2024,2025
+```
+
+- `pipeline/infer.py`: ONNX Runtime sliding window (256 px, 32 px overlap) on one global window grid, so 4096 px chunks join without seams; linear blending only in overlap strips; float16 output streamed to a memory-mapped file. Hasdeo (9 M px) takes about 9 s on an M4.
+- `pipeline/change.py`: a pixel is cleared only if the model says forest then non-forest **and** NDVI dropped by more than 0.2; 3×3 opening, 4-connected patches of at least 0.5 ha, all per-patch statistics in one `bincount` pass, polygons simplified (5 m) in UTM and then reprojected to lon/lat. Seasonal AOIs (`compare="yoy"` in config) are compared with the same month a year earlier.
+- `pipeline/export.py`: writes the data contract ([docs/data-contract.json](docs/data-contract.json)): `cleared.geojson` (auto re-simplified to stay under 1 MB), forest COG, `index.json`, `aois.json` and true-colour XYZ tiles z 8–14 from a small Python tiler (rasterio + Pillow, no GDAL command-line tools). Rasters are git-ignored; JSON is committed.
+- `pipeline/hansen.py`: Hansen GFC-2025-v1.13 loss year for the AOI window only; validation, never training.
+
+**Results vs Hansen:** Hasdeo (mine expansion, Jan 2025 → Jan 2026) pixel precision 0.725, recall 0.801 (165 ha detected vs 149 ha Hansen loss). Rondônia (Jul 2024 → Jul 2025) scores 0.142 / 0.024 against same-year loss, because Hansen's 2024–25 loss there is mostly fire-damaged standing forest, while 99 % of our detections are re-clearing on land Hansen first recorded as lost in earlier years. Details: [docs/change_validation.md](docs/change_validation.md).
+
 ## Data attributions
 
 Contains modified Copernicus Sentinel data (ESA), accessed via Microsoft Planetary Computer.
 ESA WorldCover 2021 v200 © ESA WorldCover project, licensed CC BY 4.0.
+Hansen/UMD/Google/USGS/NASA Global Forest Change 2000–2025 (v1.13), CC BY 4.0, used for validation only.
