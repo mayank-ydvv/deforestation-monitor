@@ -29,6 +29,14 @@ function dataNotFound(): Plugin {
 
 export default defineConfig({
   plugins: [react(), dataNotFound()],
+  resolve: {
+    alias: {
+      // georaster-layer's proj4-fully-loaded does `require("proj4")` then `proj4.defs(...)`.
+      // In production builds that require resolved to proj4's ESM entry (a namespace object),
+      // breaking UTM rasters with "defs is not a function"; the UMD build is a plain function.
+      proj4: "proj4/dist/proj4-src.js",
+    },
+  },
   build: {
     target: "es2020",
     rollupOptions: {
