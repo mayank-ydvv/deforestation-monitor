@@ -17,7 +17,7 @@
    "2026-01"
   ],
   "compare": "yoy",
-  "raster_base": ""
+  "raster_base": "https://huggingface.co/datasets/mayank172007/deforestation-monitor-data/resolve/main/"
  },
  {
   "id": "rondonia",
@@ -37,6 +37,6 @@
    "2025-07"
   ],
   "compare": "consecutive",
-  "raster_base": ""
+  "raster_base": "https://huggingface.co/datasets/mayank172007/deforestation-monitor-data/resolve/main/"
  }
 ]

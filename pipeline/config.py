@@ -58,6 +58,9 @@ MODELS_DIR = ROOT / "models"
 WEB_DATA_DIR = ROOT / "web" / "public" / "data"
 NORM_STATS_PATH = MODELS_DIR / "norm_stats.json"
 MODEL_PATH = MODELS_DIR / "unet_r34.onnx"
+# Large rasters (forest COGs, RGB tiles) are served from a public Hugging Face dataset.
+RASTER_REPO = "mayank172007/deforestation-monitor-data"
+RASTER_BASE_URL = f"https://huggingface.co/datasets/{RASTER_REPO}/resolve/main/"
 
 # --- Areas of interest -----------------------------------------------------------------
 Split = Literal["train", "val", "test"]

@@ -129,3 +129,32 @@ def test_repo_data_files_follow_contract(name, pattern):
         validate(name, json.loads(path.read_text()))
         if name == "cleared":
             assert path.stat().st_size <= export.MAX_GEOJSON_BYTES
+
+
+class _FakeHub:
+    """huggingface_hub 2.x stand-in: records calls, no network."""
+
+    def __init__(self):
+        self.calls = []
+
+    def create_repo(self, repo_id, **kw):
+        self.calls.append(("create_repo", repo_id, kw))
+
+    def upload_folder(self, **kw):
+        self.calls.append(("upload_folder", kw["repo_id"], kw))
+
+
+def test_upload_rasters_targets_only_rasters(tmp_path):
+    hub = _FakeHub()
+    export.upload_rasters(hub, "me/data", root=tmp_path)
+    assert hub.calls[0][0] == "create_repo" and hub.calls[0][2]["private"] is False
+    kw = hub.calls[1][2]
+    assert kw["repo_type"] == "dataset" and kw["folder_path"] == tmp_path
+    assert kw["allow_patterns"] == ["*/*/forest.tif", "*/*/rgb/**/*.png"]
+
+
+def test_aois_point_at_raster_store_by_default(tmp_path):
+    aois = export.update_aois(root=tmp_path)
+    validate("aois", aois)
+    assert all(a["raster_base"] == cfg.RASTER_BASE_URL for a in aois)
+    assert cfg.RASTER_BASE_URL.startswith("https://") and cfg.RASTER_BASE_URL.endswith("/")

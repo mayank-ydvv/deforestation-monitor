@@ -16,9 +16,10 @@ to the raster store in the monthly job). ``aois.json`` gives each AOI a ``raster
 
 from __future__ import annotations
 
+import argparse
 import json
 import math
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Sequence
 from pathlib import Path
 
 import numpy as np
@@ -183,7 +184,9 @@ def update_index(
     return rows
 
 
-def update_aois(root: Path = cfg.WEB_DATA_DIR, raster_base: str = "") -> list[dict]:
+def update_aois(
+    root: Path = cfg.WEB_DATA_DIR, raster_base: str = cfg.RASTER_BASE_URL
+) -> list[dict]:
     """Rebuild aois.json from the demo AOIs and the months present in each index.json."""
     out = []
     for aoi in cfg.AOIS.values():
@@ -207,3 +210,38 @@ def update_aois(root: Path = cfg.WEB_DATA_DIR, raster_base: str = "") -> list[di
     root.mkdir(parents=True, exist_ok=True)
     (root / "aois.json").write_text(json.dumps(out, indent=1) + "\n")
     return out
+
+
+# --- Raster store ----------------------------------------------------------------------
+RASTER_PATTERNS = ["*/*/forest.tif", "*/*/rgb/**/*.png"]
+
+
+def upload_rasters(api, repo: str = cfg.RASTER_REPO, root: Path = cfg.WEB_DATA_DIR) -> None:
+    """Upload forest COGs and RGB tiles under ``root`` to the public HF dataset ``repo``.
+
+    Resumable on both huggingface_hub generations (``upload_large_folder`` on 0.x, the
+    batching ``upload_folder`` on 2.x); files already there are skipped.
+    """
+    api.create_repo(repo, repo_type="dataset", private=False, exist_ok=True)
+    upload = getattr(api, "upload_large_folder", None) or api.upload_folder
+    upload(repo_id=repo, repo_type="dataset", folder_path=root, allow_patterns=RASTER_PATTERNS)
+
+
+def main(argv: Sequence[str] | None = None) -> None:
+    """CLI: ``python -m pipeline.export --upload`` pushes rasters and refreshes aois.json."""
+    ap = argparse.ArgumentParser(description=main.__doc__)
+    ap.add_argument("--upload", action="store_true", help="upload rasters to the HF dataset")
+    ap.add_argument("--repo", default=cfg.RASTER_REPO)
+    args = ap.parse_args(argv)
+    if args.upload:
+        from huggingface_hub import HfApi
+
+        upload_rasters(HfApi(), args.repo)
+        print(f"Uploaded rasters to https://huggingface.co/datasets/{args.repo}")
+    base = f"https://huggingface.co/datasets/{args.repo}/resolve/main/"
+    aois = update_aois(raster_base=base)
+    print(f"aois.json: {[a['id'] for a in aois]} -> raster_base {base}")
+
+
+if __name__ == "__main__":
+    main()
