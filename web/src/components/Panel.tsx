@@ -30,7 +30,8 @@ export default function Panel({ children }: { children: ReactNode }) {
           {open ? "Hide" : "Show"}
         </button>
       </header>
-      <div id="panel-body" hidden={!open} className="flex flex-col gap-4 overflow-y-auto px-4 py-4">
+      {/* Not the `hidden` attribute: Tailwind's `flex` display would override it. */}
+      <div id="panel-body" className={`${open ? "flex" : "hidden"} flex-col gap-4 overflow-y-auto px-4 py-4`}>
         {children}
       </div>
     </aside>
