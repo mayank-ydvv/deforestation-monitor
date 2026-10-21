@@ -8,6 +8,7 @@ import MapView from "./components/MapView";
 import Panel from "./components/Panel";
 import PatchPopup from "./components/PatchPopup";
 import RegionPicker from "./components/RegionPicker";
+import SwipeCompare from "./components/SwipeCompare";
 import { useAoiData } from "./hooks/useAoiData";
 import { getJson, rasterUrl } from "./lib/data";
 import type { Aoi, ClearedFeature } from "./lib/types";
@@ -45,6 +46,14 @@ export default function App() {
   return (
     <div className="relative h-full w-full">
       <MapView aoi={aoi}>
+        {aoi && layers.swipe && range.before && range.after && (
+          <SwipeCompare
+            beforeUrl={rasterUrl(aoi, range.before, "rgb")}
+            afterUrl={rasterUrl(aoi, range.after, "rgb")}
+            before={range.before}
+            after={range.after}
+          />
+        )}
         {aoi && layers.forest && range.after && (
           <ForestLayer url={rasterUrl(aoi, range.after, "forest")} onError={setError} />
         )}

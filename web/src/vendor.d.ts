@@ -15,3 +15,5 @@ declare module "georaster-layer-for-leaflet" {
     constructor(options: GeoRasterLayerOptions);
   }
 }
+
+declare module "leaflet-side-by-side";
