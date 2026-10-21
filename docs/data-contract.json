@@ -1,0 +1,151 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/deforestation-monitor/data-contract.json",
+  "title": "Deforestation Monitor data contract",
+  "description": "Files the pipeline writes under web/public/data and the static site reads. Rasters (forest.tif, rgb tiles) live at {raster_base}{aoi}/{month}/ as given in aois.json.",
+  "$defs": {
+    "month": {"type": "string", "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])$"},
+    "lon": {"type": "number", "minimum": -180, "maximum": 180},
+    "lat": {"type": "number", "minimum": -90, "maximum": 90},
+    "position": {
+      "type": "array",
+      "prefixItems": [{"$ref": "#/$defs/lon"}, {"$ref": "#/$defs/lat"}],
+      "minItems": 2,
+      "maxItems": 2
+    },
+    "ring": {"type": "array", "items": {"$ref": "#/$defs/position"}, "minItems": 4},
+    "polygon": {"type": "array", "items": {"$ref": "#/$defs/ring"}, "minItems": 1},
+    "aois": {
+      "description": "aois.json",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "name", "bbox", "center", "months", "compare", "raster_base"],
+        "additionalProperties": false,
+        "properties": {
+          "id": {"type": "string", "pattern": "^[a-z0-9_]+$"},
+          "name": {"type": "string"},
+          "bbox": {
+            "type": "array",
+            "prefixItems": [{"$ref": "#/$defs/lon"}, {"$ref": "#/$defs/lat"}, {"$ref": "#/$defs/lon"}, {"$ref": "#/$defs/lat"}],
+            "minItems": 4,
+            "maxItems": 4
+          },
+          "center": {
+            "description": "[lat, lon], as Leaflet expects",
+            "type": "array",
+            "prefixItems": [{"$ref": "#/$defs/lat"}, {"$ref": "#/$defs/lon"}],
+            "minItems": 2,
+            "maxItems": 2
+          },
+          "months": {"type": "array", "items": {"$ref": "#/$defs/month"}, "uniqueItems": true},
+          "compare": {"enum": ["consecutive", "yoy"]},
+          "raster_base": {"type": "string", "description": "'' for paths relative to the data root, or an absolute URL ending in '/'"}
+        }
+      }
+    },
+    "index": {
+      "description": "<aoi>/index.json: one row per 'after' month",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["month", "t1", "hectares", "patches"],
+        "additionalProperties": false,
+        "properties": {
+          "month": {"$ref": "#/$defs/month"},
+          "t1": {"$ref": "#/$defs/month"},
+          "hectares": {"type": "number", "minimum": 0},
+          "patches": {"type": "integer", "minimum": 0}
+        }
+      }
+    },
+    "cleared": {
+      "description": "<aoi>/<YYYY-MM>/cleared.geojson (kept under 1 MB)",
+      "type": "object",
+      "required": ["type", "features"],
+      "properties": {
+        "type": {"const": "FeatureCollection"},
+        "features": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["type", "geometry", "properties"],
+            "properties": {
+              "type": {"const": "Feature"},
+              "geometry": {
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "required": ["type", "coordinates"],
+                    "properties": {"type": {"const": "Polygon"}, "coordinates": {"$ref": "#/$defs/polygon"}}
+                  },
+                  {
+                    "type": "object",
+                    "required": ["type", "coordinates"],
+                    "properties": {
+                      "type": {"const": "MultiPolygon"},
+                      "coordinates": {"type": "array", "items": {"$ref": "#/$defs/polygon"}, "minItems": 1}
+                    }
+                  }
+                ]
+              },
+              "properties": {
+                "type": "object",
+                "required": ["id", "area_ha", "t1", "t2", "ndvi_drop", "confidence", "confirmed"],
+                "additionalProperties": false,
+                "properties": {
+                  "id": {"type": "string"},
+                  "area_ha": {"type": "number", "minimum": 0.5},
+                  "t1": {"$ref": "#/$defs/month"},
+                  "t2": {"$ref": "#/$defs/month"},
+                  "ndvi_drop": {"type": "number"},
+                  "confidence": {"type": "number", "minimum": 0, "maximum": 1},
+                  "confirmed": {"type": "boolean"}
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "scores": {
+      "type": "object",
+      "required": ["iou", "f1", "precision", "recall"],
+      "properties": {
+        "iou": {"type": "number", "minimum": 0, "maximum": 1},
+        "f1": {"type": "number", "minimum": 0, "maximum": 1},
+        "precision": {"type": "number", "minimum": 0, "maximum": 1},
+        "recall": {"type": "number", "minimum": 0, "maximum": 1},
+        "baseline_iou": {"type": "number", "minimum": 0, "maximum": 1}
+      }
+    },
+    "metrics": {
+      "description": "metrics.json",
+      "allOf": [{"$ref": "#/$defs/scores"}],
+      "type": "object",
+      "required": ["per_region"],
+      "properties": {
+        "per_region": {
+          "type": "object",
+          "additionalProperties": {
+            "allOf": [{"$ref": "#/$defs/scores"}],
+            "type": "object",
+            "properties": {"months": {"type": "object", "additionalProperties": {"$ref": "#/$defs/scores"}}}
+          }
+        },
+        "change_validation": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "required": ["t1", "t2", "hansen_years", "pixel_precision", "pixel_recall", "patch_precision"],
+            "properties": {
+              "pixel_precision": {"type": "number", "minimum": 0, "maximum": 1},
+              "pixel_recall": {"type": "number", "minimum": 0, "maximum": 1},
+              "patch_precision": {"type": "number", "minimum": 0, "maximum": 1}
+            }
+          }
+        }
+      }
+    }
+  }
+}
