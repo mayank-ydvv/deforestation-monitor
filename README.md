@@ -2,7 +2,7 @@
 
 A web app that shows on an interactive map where forest was cleared between two dates, using free Sentinel-2 imagery, a U-Net forest-segmentation model and multi-date change detection, updated monthly at ₹0 hosting cost.
 
-> Work in progress: **Phase 1 (data)** and **Phase 2 (labels and tiles)** are in place. Full README (live link, metrics, architecture, cost, limitations, attributions) lands in Phase 6.
+> Work in progress: **Phase 1 (data)**, **Phase 2 (labels and tiles)** and **Phase 3 (training)** are in place. Full README (live link, metrics, architecture, cost, limitations, attributions) lands in Phase 6.
 
 ## Setup
 
@@ -66,6 +66,8 @@ uv pip install -p .venv/bin/python -r requirements-infer.txt -r requirements-dev
 - `training/train.py`: `smp.Unet("resnet34", encoder_weights="imagenet", in_channels=7, classes=1)`, Dice + BCE-with-logits, AdamW (lr 1e-3, wd 1e-4), OneCycleLR, batch 16, AMP, `channels_last`, pinned memory, `non_blocking` copies, `zero_grad(set_to_none=True)`; keeps the checkpoint with the best validation IoU.
 - Export: the model is wrapped with a sigmoid so the ONNX graph (opset 17, dynamic batch) outputs forest probability; `check_parity` asserts ONNX Runtime matches PyTorch within 1e-3.
 - `training/evaluate.py` scores forest IoU, F1, precision and recall per region and pooled over the held-out `test` region(s), writing `web/public/data/metrics.json`. Each score comes with `baseline_iou`, what "forest everywhere" would get, because forest IoU flatters lazy models in mostly-forest regions.
+**Results (current model, run 2, held-out Hasdeo):** IoU **0.806** overall (all-forest baseline 0.618), F1 0.893, precision 0.940, recall 0.850. By season: January (leaf-on) **0.879**, which meets the > 0.85 target; April (leaf-off sal) 0.731, which does not. Validation (Western Ghats) IoU 0.933. See [docs/training_runs/](docs/training_runs/README.md) for both runs and what changed between them.
+
 - Local smoke test without a GPU: `uv venv -p 3.11 .venv-train && uv pip install -p .venv-train/bin/python -r requirements-train.txt pytest`, then `.venv-train/bin/python -m pytest tests/test_train.py`. Torch stays out of `.venv` (the inference environment).
 
 ## Data attributions
