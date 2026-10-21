@@ -2,7 +2,9 @@
 
 A web app that shows on an interactive map where forest was cleared between two dates, using free Sentinel-2 imagery, a U-Net forest-segmentation model and multi-date change detection, updated monthly at ₹0 hosting cost.
 
-> Work in progress: **Phase 1 (data)**, **Phase 2 (labels and tiles)**, **Phase 3 (training)** and **Phase 4 (change detection)** are in place. Full README (live link, metrics, architecture, cost, limitations, attributions) lands in Phase 6.
+**Live:** https://deforestation-monitor-five.vercel.app (sample data: Hasdeo Arand Jan 2025 → Jan 2026, Rondônia Jul 2024 → Jul 2025)
+
+> Work in progress: Phases 1–5 (data, labels and tiles, training, change detection, web app) are in place. The monthly automation, backfill and the full README land in Phase 6.
 
 ## Setup
 
@@ -86,6 +88,25 @@ uv pip install -p .venv/bin/python -r requirements-infer.txt -r requirements-dev
 - `pipeline/hansen.py`: Hansen GFC-2025-v1.13 loss year for the AOI window only; validation, never training.
 
 **Results vs Hansen:** Hasdeo (mine expansion, Jan 2025 → Jan 2026) pixel precision 0.725, recall 0.801 (165 ha detected vs 149 ha Hansen loss). Rondônia (Jul 2024 → Jul 2025) scores 0.142 / 0.024 against same-year loss, because Hansen's 2024–25 loss there is mostly fire-damaged standing forest, while 99 % of our detections are re-clearing on land Hansen first recorded as lost in earlier years. Details: [docs/change_validation.md](docs/change_validation.md).
+
+## Phase 5: web app
+
+```bash
+cd web
+npm install
+npm run dev        # http://localhost:5173, reads web/public/data
+npm test           # Vitest: useAoiData caching and aborts
+npm run build      # type-check + production bundle in web/dist
+
+# Rasters for the site are served from a public Hugging Face dataset
+.venv/bin/python -m pipeline.export --upload
+```
+
+- React 18 + Vite + TypeScript + Tailwind, react-leaflet on an Esri World Imagery basemap; no backend. Deployed on Vercel from `web/` (auto-deploys on every push to `main`).
+- Features: region picker (flies to the AOI), before/after month sliders with no-data months marked, red cleared-area polygons with a popup (area, dates, NDVI drop, confidence, confirmed), green forest-mask toggle (forest COG via `georaster-layer-for-leaflet`), before/after swipe (`leaflet-side-by-side`), and a stats panel (Recharts) with the total for the selected range. Picking a range shows every patch detected after the "before" month up to the "after" month.
+- Performance: `useAoiData` fetches only the selected range's files, caches each in a `Map` keyed by aoi/month and aborts stale requests. Initial JS is about 97 kB gzipped; Recharts, the COG reader and the swipe plugin load on first use.
+- Data: JSON comes from `web/public/data` (in git); forest COGs and RGB tiles come from [`mayank172007/deforestation-monitor-data`](https://huggingface.co/datasets/mayank172007/deforestation-monitor-data) via `raster_base` in `aois.json`.
+- Layout: full-screen dark map with a collapsible side panel that becomes a bottom sheet under 768 px; labelled controls and a table view of the chart.
 
 ## Data attributions
 
