@@ -5,3 +5,4 @@ jupyter>=1.0
 nbconvert>=7
 ipykernel>=6
 huggingface_hub>=0.24
+jsonschema>=4.21
