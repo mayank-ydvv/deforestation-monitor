@@ -22,10 +22,22 @@ export function bboxToBounds(bbox: Aoi["bbox"]): LatLngBoundsExpression {
   ];
 }
 
+/** Padding that keeps the AOI clear of the panel: left sidebar on desktop, bottom sheet on mobile. */
+export function panelPadding(width: number, height: number): {
+  paddingTopLeft: [number, number];
+  paddingBottomRight: [number, number];
+} {
+  return width >= 768
+    ? { paddingTopLeft: [16 + 320 + 24, 24], paddingBottomRight: [24, 24] }
+    : { paddingTopLeft: [16, 16], paddingBottomRight: [16, Math.round(height * 0.6) + 16] };
+}
+
 function FlyToAoi({ aoi }: { aoi: Aoi | null }) {
   const map = useMap();
   useEffect(() => {
-    if (aoi) map.flyToBounds(bboxToBounds(aoi.bbox), { padding: [24, 24], duration: 1.2 });
+    if (!aoi) return;
+    const { x, y } = map.getSize();
+    map.flyToBounds(bboxToBounds(aoi.bbox), { ...panelPadding(x, y), duration: 1.2 });
   }, [aoi, map]);
   return null;
 }
