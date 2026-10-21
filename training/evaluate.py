@@ -5,8 +5,13 @@ Runs with ONNX Runtime + NumPy only (no torch), so it works in the inference env
     python -m training.evaluate --model models/unet_r34.onnx
 
 Pixel counts are pooled per region; the headline numbers pool all ``test`` regions. Writes
-``web/public/data/metrics.json``. (Change-detection precision/recall vs Hansen is added in
-Phase 4.)
+``web/public/data/metrics.json``.
+
+Change detection is validated against Hansen Global Forest Change loss for matching years
+(Hansen is never used for training) and merged into the same file:
+
+    python -m training.evaluate --hansen hasdeo:2025-01:2026-01:2025 \\
+        rondonia:2024-07:2025-07:2024,2025
 """
 
 from __future__ import annotations
@@ -131,6 +136,71 @@ def build_metrics(per_region: dict[str, dict], headline_split: str = "test", **m
     }
 
 
+def change_vs_hansen(
+    lab: np.ndarray,
+    sizes: np.ndarray,
+    lossyear: np.ndarray,
+    years: Sequence[int],
+    min_px: int = cfg.MIN_AREA_PX,
+    patch_overlap: float = 0.25,
+) -> dict[str, float]:
+    """Cleared patches (label image from change.cleared) against Hansen loss in ``years``.
+
+    * pixel precision: share of our cleared pixels that Hansen marks as lost;
+    * pixel recall: share of Hansen loss we flag, counting only Hansen patches of at least
+      ``min_px`` (smaller ones are below our minimum mapping unit by design);
+    * patch precision: share of our patches with >= ``patch_overlap`` of their area in loss.
+    """
+    from scipy import ndimage
+
+    ours_ids = np.flatnonzero(sizes >= min_px)
+    ours_ids = ours_ids[ours_ids != 0]
+    keep = np.zeros(len(sizes), dtype=bool)
+    keep[ours_ids] = True
+    ours = keep[lab]
+    loss = np.isin(lossyear, [y - 2000 for y in years])
+    hl, _ = ndimage.label(loss)
+    hsizes = np.bincount(hl.ravel())
+    hkeep = hsizes >= min_px
+    hkeep[0] = False
+    loss_big = hkeep[hl]
+    overlap = np.bincount(lab.ravel(), weights=loss.ravel(), minlength=len(sizes))
+    share = overlap[ours_ids] / sizes[ours_ids] if len(ours_ids) else np.array([])
+    pixel_ha = cfg.RESOLUTION_M**2 / 10_000
+    return {
+        "pixel_precision": round(float((ours & loss).sum() / max(ours.sum(), 1)), 4),
+        "pixel_recall": round(float((ours & loss_big).sum() / max(loss_big.sum(), 1)), 4),
+        "patch_precision": round(float((share >= patch_overlap).mean()) if share.size else 0.0, 4),
+        "patches": int(len(ours_ids)),
+        "detected_ha": round(float(ours.sum() * pixel_ha), 1),
+        "hansen_loss_ha": round(float(loss.sum() * pixel_ha), 1),
+        "hansen_loss_ha_over_min_area": round(float(loss_big.sum() * pixel_ha), 1),
+    }
+
+
+def validate_change(spec: str, session) -> tuple[str, dict]:
+    """Run one 'aoi:t1:t2:year[,year]' Hansen comparison; returns (key, result)."""
+    from pipeline import change, hansen
+    from pipeline.labels import grid_of
+    from pipeline.process import composite_ndvi, forest_probability
+
+    aoi_id, t1, t2, years_s = spec.split(":")
+    years = [int(y) for y in years_s.split(",")]
+    aoi = cfg.get_aoi(aoi_id)
+    c1, p1 = forest_probability(aoi, t1, session)
+    c2, p2 = forest_probability(aoi, t2, session)
+    _, lab, sizes = change.cleared(p1, p2, composite_ndvi(c1), composite_ndvi(c2))
+    grid = grid_of(c2.data)
+    lossyear = hansen.loss_year(grid, hansen.cache_path_for(aoi.id))
+    result = {
+        "t1": t1,
+        "t2": t2,
+        "hansen_years": years,
+        **change_vs_hansen(lab, sizes, lossyear, years),
+    }
+    return f"{aoi_id} {t1}->{t2}", result
+
+
 def main(argv: Sequence[str] | None = None) -> None:
     """CLI entry point."""
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
@@ -140,7 +210,27 @@ def main(argv: Sequence[str] | None = None) -> None:
     ap.add_argument("--splits", nargs="+", default=["test", "val"])
     ap.add_argument("--threshold", type=float, default=cfg.PROB_THR)
     ap.add_argument("--out", type=Path, default=METRICS_PATH)
+    ap.add_argument(
+        "--hansen",
+        nargs="+",
+        metavar="AOI:T1:T2:YEARS",
+        help="only validate change detection vs Hansen and merge into --out",
+    )
     args = ap.parse_args(argv)
+
+    if args.hansen:
+        session = make_session(args.model)
+        metrics = json.loads(args.out.read_text()) if args.out.exists() else {}
+        validation = metrics.get("change_validation", {})
+        for spec in args.hansen:
+            key, result = validate_change(spec, session)
+            validation[key] = result
+            print(key, result)
+        metrics["change_validation"] = validation
+        metrics["change_validation_source"] = "Hansen/UMD Global Forest Change GFC-2025-v1.13"
+        args.out.parent.mkdir(parents=True, exist_ok=True)
+        args.out.write_text(json.dumps(metrics, indent=2) + "\n")
+        return
 
     per_region = region_counts(
         make_session(args.model), args.manifest, args.norm_stats, args.splits, thr=args.threshold

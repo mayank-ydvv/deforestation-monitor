@@ -54,3 +54,19 @@ def test_region_counts_and_metrics(tile_root):  # noqa: F811
 def test_build_metrics_requires_headline_split():
     with pytest.raises(ValueError):
         ev.build_metrics({"r": {"split": "val", "n_tiles": 1, "counts": np.array([1, 0, 0, 0])}})
+
+
+def test_change_vs_hansen():
+    lab = np.zeros((100, 100), dtype="int32")
+    lab[0:10, 0:10] = 1  # 100 px, fully inside Hansen loss
+    lab[50:60, 50:60] = 2  # 100 px, no Hansen loss -> false alarm
+    sizes = np.bincount(lab.ravel())
+    lossyear = np.zeros((100, 100), dtype="uint8")
+    lossyear[0:10, 0:10] = 25  # 2025 loss we found
+    lossyear[80:90, 80:90] = 25  # 2025 loss we missed (100 px >= 50)
+    lossyear[30:32, 30:32] = 25  # 4 px: below minimum mapping unit, ignored for recall
+    lossyear[95:100, 0:20] = 21  # other year: ignored
+    r = ev.change_vs_hansen(lab, sizes, lossyear, [2025])
+    assert r["pixel_precision"] == 0.5 and r["pixel_recall"] == 0.5
+    assert r["patch_precision"] == 0.5 and r["patches"] == 2
+    assert r["detected_ha"] == 2.0 and r["hansen_loss_ha_over_min_area"] == 2.0
