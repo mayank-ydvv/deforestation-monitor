@@ -1,0 +1,17 @@
+{
+  "iou": 0.5255,
+  "f1": 0.689,
+  "precision": 0.9177,
+  "recall": 0.5515,
+  "baseline_iou": 0.6182,
+  "evaluated_on": "test",
+  "per_region": {
+    "hasdeo": {"split": "test", "n_tiles": 264, "iou": 0.5255, "f1": 0.689, "precision": 0.9177, "recall": 0.5515, "baseline_iou": 0.6182},
+    "western_ghats": {"split": "val", "n_tiles": 288, "iou": 0.9317, "f1": 0.9646, "precision": 0.963, "recall": 0.9663, "baseline_iou": 0.787}
+  },
+  "threshold": 0.5,
+  "label_source": "ESA WorldCover 2021 (class 10)",
+  "model": "unet_r34.onnx",
+  "generated": "2026-10-21",
+  "run": "Kaggle train4f5086544f, T4, 30 epochs, train = rondonia + mato_grosso + prey_lang"
+}
