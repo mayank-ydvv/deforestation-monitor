@@ -8,3 +8,4 @@ rioxarray>=0.15
 pystac-client>=0.7
 planetary-computer>=1.0
 stackstac>=0.5.1
+onnxruntime>=1.18

@@ -4,3 +4,4 @@ matplotlib>=3.8
 jupyter>=1.0
 nbconvert>=7
 ipykernel>=6
+huggingface_hub>=0.24
