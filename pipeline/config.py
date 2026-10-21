@@ -131,6 +131,15 @@ AOIS: dict[str, AOI] = {
             label_months=("2021-03", "2021-12"),
         ),
         AOI(
+            id="kanha",
+            name="Kanha, Madhya Pradesh (India)",
+            bbox=(80.55, 22.15, 80.85, 22.45),  # dry deciduous sal, like Hasdeo
+            epsg=32644,
+            months_skip=(6, 7, 8, 9),
+            split="train",
+            label_months=("2021-01", "2021-04"),  # leaf-on and leaf-off, matching Hasdeo
+        ),
+        AOI(
             id="western_ghats",
             name="Western Ghats, Karnataka (India)",
             bbox=(75.15, 13.10, 75.45, 13.40),
