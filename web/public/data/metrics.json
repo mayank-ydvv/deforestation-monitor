@@ -72,10 +72,27 @@
       "pixel_precision": 0.7252,
       "pixel_recall": 0.8005,
       "patch_precision": 0.3939,
+      "pixel_precision_any_year": 0.7369,
       "patches": 33,
       "detected_ha": 164.9,
       "hansen_loss_ha": 154.6,
       "hansen_loss_ha_over_min_area": 149.2
+    },
+    "rondonia 2024-07->2025-07": {
+      "t1": "2024-07",
+      "t2": "2025-07",
+      "hansen_years": [
+        2024,
+        2025
+      ],
+      "pixel_precision": 0.1421,
+      "pixel_recall": 0.0244,
+      "patch_precision": 0.1162,
+      "pixel_precision_any_year": 0.9905,
+      "patches": 198,
+      "detected_ha": 376.6,
+      "hansen_loss_ha": 2343.9,
+      "hansen_loss_ha_over_min_area": 2070.1
     }
   },
   "change_validation_source": "Hansen/UMD Global Forest Change GFC-2025-v1.13"

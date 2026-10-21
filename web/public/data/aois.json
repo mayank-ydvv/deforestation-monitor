@@ -32,7 +32,10 @@
    -9.42,
    -64.2
   ],
-  "months": [],
+  "months": [
+   "2024-07",
+   "2025-07"
+  ],
   "compare": "consecutive",
   "raster_base": ""
  }
