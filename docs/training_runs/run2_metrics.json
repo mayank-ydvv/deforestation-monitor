@@ -1,0 +1,65 @@
+{
+  "iou": 0.8062,
+  "f1": 0.8927,
+  "precision": 0.9402,
+  "recall": 0.8498,
+  "baseline_iou": 0.6182,
+  "evaluated_on": "test",
+  "per_region": {
+    "hasdeo": {
+      "split": "test",
+      "n_tiles": 264,
+      "iou": 0.8062,
+      "f1": 0.8927,
+      "precision": 0.9402,
+      "recall": 0.8498,
+      "baseline_iou": 0.6182,
+      "months": {
+        "2021-01": {
+          "iou": 0.8789,
+          "f1": 0.9356,
+          "precision": 0.928,
+          "recall": 0.9432,
+          "baseline_iou": 0.6182
+        },
+        "2021-04": {
+          "iou": 0.7308,
+          "f1": 0.8444,
+          "precision": 0.9558,
+          "recall": 0.7564,
+          "baseline_iou": 0.6182
+        }
+      }
+    },
+    "western_ghats": {
+      "split": "val",
+      "n_tiles": 288,
+      "iou": 0.9328,
+      "f1": 0.9652,
+      "precision": 0.9574,
+      "recall": 0.9732,
+      "baseline_iou": 0.787,
+      "months": {
+        "2021-01": {
+          "iou": 0.9321,
+          "f1": 0.9648,
+          "precision": 0.9447,
+          "recall": 0.9859,
+          "baseline_iou": 0.787
+        },
+        "2021-02": {
+          "iou": 0.9335,
+          "f1": 0.9656,
+          "precision": 0.9707,
+          "recall": 0.9605,
+          "baseline_iou": 0.787
+        }
+      }
+    }
+  },
+  "threshold": 0.5,
+  "label_source": "ESA WorldCover 2021 (class 10)",
+  "model": "unet_r34.onnx",
+  "generated": "2026-10-21",
+  "run": "Kaggle train1b242553f7, T4, 30 epochs (best = 30), train = rondonia + mato_grosso + prey_lang + kanha"
+}
