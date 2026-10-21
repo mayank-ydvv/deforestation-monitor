@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
 
+import ClearedLayer from "./components/ClearedLayer";
 import DateRangeSlider from "./components/DateRangeSlider";
 import MapView from "./components/MapView";
 import Panel from "./components/Panel";
 import RegionPicker from "./components/RegionPicker";
+import { useAoiData } from "./hooks/useAoiData";
 import { getJson } from "./lib/data";
 import type { Aoi } from "./lib/types";
 
@@ -29,9 +31,13 @@ export default function App() {
     if (aoi) setRange({ before: aoi.months[0] ?? "", after: aoi.months[aoi.months.length - 1] ?? "" });
   }, [aoi]);
 
+  const data = useAoiData(aoi, range.before, range.after);
+
   return (
     <div className="relative h-full w-full">
-      <MapView aoi={aoi} />
+      <MapView aoi={aoi}>
+        <ClearedLayer features={data.features} />
+      </MapView>
       <Panel>
         {error && <p role="alert" className="text-sm text-red-300">Could not load regions: {error}</p>}
         {aois.length > 0 && <RegionPicker aois={aois} value={aoiId} onChange={setAoiId} />}
