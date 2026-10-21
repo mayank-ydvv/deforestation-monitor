@@ -149,7 +149,10 @@ def change_vs_hansen(
     * pixel precision: share of our cleared pixels that Hansen marks as lost;
     * pixel recall: share of Hansen loss we flag, counting only Hansen patches of at least
       ``min_px`` (smaller ones are below our minimum mapping unit by design);
-    * patch precision: share of our patches with >= ``patch_overlap`` of their area in loss.
+    * patch precision: share of our patches with >= ``patch_overlap`` of their area in loss;
+    * pixel precision (any year): share of our cleared pixels in Hansen loss of *any* year up to
+      the last of ``years``. Hansen records only the first loss since 2000, so re-clearing of
+      regrown vegetation never appears as same-year loss; this shows how much of that we see.
     """
     from scipy import ndimage
 
@@ -159,6 +162,7 @@ def change_vs_hansen(
     keep[ours_ids] = True
     ours = keep[lab]
     loss = np.isin(lossyear, [y - 2000 for y in years])
+    loss_any = (lossyear > 0) & (lossyear <= max(years) - 2000)
     hl, _ = ndimage.label(loss)
     hsizes = np.bincount(hl.ravel())
     hkeep = hsizes >= min_px
@@ -171,6 +175,7 @@ def change_vs_hansen(
         "pixel_precision": round(float((ours & loss).sum() / max(ours.sum(), 1)), 4),
         "pixel_recall": round(float((ours & loss_big).sum() / max(loss_big.sum(), 1)), 4),
         "patch_precision": round(float((share >= patch_overlap).mean()) if share.size else 0.0, 4),
+        "pixel_precision_any_year": round(float((ours & loss_any).sum() / max(ours.sum(), 1)), 4),
         "patches": int(len(ours_ids)),
         "detected_ha": round(float(ours.sum() * pixel_ha), 1),
         "hansen_loss_ha": round(float(loss.sum() * pixel_ha), 1),

@@ -65,8 +65,10 @@ def test_change_vs_hansen():
     lossyear[0:10, 0:10] = 25  # 2025 loss we found
     lossyear[80:90, 80:90] = 25  # 2025 loss we missed (100 px >= 50)
     lossyear[30:32, 30:32] = 25  # 4 px: below minimum mapping unit, ignored for recall
-    lossyear[95:100, 0:20] = 21  # other year: ignored
+    lossyear[95:100, 0:20] = 21  # other year: ignored for same-year scores
+    lossyear[50:55, 50:60] = 12  # half of patch 2 was first lost in 2012 (re-clearing)
     r = ev.change_vs_hansen(lab, sizes, lossyear, [2025])
     assert r["pixel_precision"] == 0.5 and r["pixel_recall"] == 0.5
     assert r["patch_precision"] == 0.5 and r["patches"] == 2
     assert r["detected_ha"] == 2.0 and r["hansen_loss_ha_over_min_area"] == 2.0
+    assert r["pixel_precision_any_year"] == 0.75  # 100 + 50 of our 200 px
