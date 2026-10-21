@@ -53,7 +53,7 @@ uv pip install -p .venv/bin/python -r requirements-infer.txt -r requirements-dev
 
 ```bash
 # 1. Publish tiles + norm stats + training code to a Hugging Face dataset (resumable)
-.venv/bin/huggingface-cli login
+.venv/bin/hf auth login
 .venv/bin/python -m training.upload_tiles --repo <you>/deforestation-monitor-tiles
 
 # 2. Open training/train.ipynb on Kaggle (GPU + Internet on) or Colab (T4), set HF_REPO, run all.
