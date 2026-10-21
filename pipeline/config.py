@@ -70,7 +70,9 @@ class AOI:
     ``bbox`` is (min_lon, min_lat, max_lon, max_lat); ``epsg`` is the local UTM zone;
     ``months_skip`` lists calendar months (1-12) that are too cloudy to be worth fetching;
     ``split`` is the region-level train/val/test assignment; ``demo`` AOIs appear on the site;
-    ``label_months`` are clear months in the WorldCover label year used to build training tiles.
+    ``label_months`` are clear months in the WorldCover label year used to build training tiles;
+    ``compare`` is how change detection picks the "before" month: ``yoy`` (same month a year
+    earlier, for seasonal/deciduous forest) or ``consecutive`` (latest earlier usable month).
     """
 
     id: str
@@ -81,6 +83,7 @@ class AOI:
     split: Split = "train"
     demo: bool = False
     label_months: tuple[str, ...] = ()
+    compare: Literal["consecutive", "yoy"] = "consecutive"
 
     @property
     def center(self) -> tuple[float, float]:
@@ -100,6 +103,7 @@ AOIS: dict[str, AOI] = {
             months_skip=(6, 7, 8, 9),
             split="test",
             label_months=("2021-01", "2021-04"),
+            compare="yoy",
             demo=True,
         ),
         AOI(
@@ -138,6 +142,7 @@ AOIS: dict[str, AOI] = {
             months_skip=(6, 7, 8, 9),
             split="train",
             label_months=("2021-01", "2021-04"),  # leaf-on and leaf-off, matching Hasdeo
+            compare="yoy",
         ),
         AOI(
             id="western_ghats",
@@ -147,6 +152,7 @@ AOIS: dict[str, AOI] = {
             months_skip=(6, 7, 8, 9),
             split="val",
             label_months=("2021-01", "2021-02"),
+            compare="yoy",
         ),
     )
 }
