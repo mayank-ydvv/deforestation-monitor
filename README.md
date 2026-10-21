@@ -49,6 +49,25 @@ uv pip install -p .venv/bin/python -r requirements-infer.txt -r requirements-dev
 - `pipeline/tiles.py` cuts 7-channel inputs (six bands + NDVI) into 256×256 tiles with stride 256, drops tiles with > 10 % NaN pixels, fills remaining NaN with the channel mean, and saves `X_*.npy` (float16) / `Y_*.npy` (uint8) under `tiles/<aoi>/<month>/`.
 - Splits are by **region** (`split` per AOI), never per tile. Outputs: `tiles/manifest.csv`, `models/norm_stats.json` (per-channel mean/std from the train split only) and `docs/class_balance.md`.
 
+## Phase 3: training (Kaggle/Colab GPU) and evaluation
+
+```bash
+# 1. Publish tiles + norm stats + training code to a Hugging Face dataset (resumable)
+.venv/bin/huggingface-cli login
+.venv/bin/python -m training.upload_tiles --repo <you>/deforestation-monitor-tiles
+
+# 2. Open training/train.ipynb on Kaggle (GPU + Internet on) or Colab (T4), set HF_REPO, run all.
+#    Download outputs/unet_r34.onnx -> models/, outputs/metrics.json -> web/public/data/
+
+# 3. Re-score locally with ONNX Runtime only (no torch)
+.venv/bin/python -m training.evaluate --model models/unet_r34.onnx
+```
+
+- `training/train.py`: `smp.Unet("resnet34", encoder_weights="imagenet", in_channels=7, classes=1)`, Dice + BCE-with-logits, AdamW (lr 1e-3, wd 1e-4), OneCycleLR, batch 16, AMP, `channels_last`, pinned memory, `non_blocking` copies, `zero_grad(set_to_none=True)`; keeps the checkpoint with the best validation IoU.
+- Export: the model is wrapped with a sigmoid so the ONNX graph (opset 17, dynamic batch) outputs forest probability; `check_parity` asserts ONNX Runtime matches PyTorch within 1e-3.
+- `training/evaluate.py` scores forest IoU, F1, precision and recall per region and pooled over the held-out `test` region(s), writing `web/public/data/metrics.json`. Each score comes with `baseline_iou`, what "forest everywhere" would get, because forest IoU flatters lazy models in mostly-forest regions.
+- Local smoke test without a GPU: `uv venv -p 3.11 .venv-train && uv pip install -p .venv-train/bin/python -r requirements-train.txt pytest`, then `.venv-train/bin/python -m pytest tests/test_train.py`. Torch stays out of `.venv` (the inference environment).
+
 ## Data attributions
 
 Contains modified Copernicus Sentinel data (ESA), accessed via Microsoft Planetary Computer.
