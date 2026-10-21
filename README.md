@@ -2,7 +2,7 @@
 
 A web app that shows on an interactive map where forest was cleared between two dates, using free Sentinel-2 imagery, a U-Net forest-segmentation model and multi-date change detection, updated monthly at ₹0 hosting cost.
 
-> Work in progress: **Phase 1 (data)** is done. Full README (live link, metrics, architecture, cost, limitations, attributions) lands in Phase 6.
+> Work in progress: **Phase 1 (data)** and **Phase 2 (labels and tiles)** are in place. Full README (live link, metrics, architecture, cost, limitations, attributions) lands in Phase 6.
 
 ## Setup
 
@@ -30,6 +30,26 @@ uv pip install -p .venv/bin/python -r requirements-infer.txt -r requirements-dev
 - `pipeline/fetch.py` searches Planetary Computer (scenes < 20 % cloud, up to the 6 clearest per month), stacks the 10 m bands, the 20 m SWIR bands (bilinear to 10 m) and SCL lazily, removes the +1000 DN offset of processing baseline ≥ 04.00, masks SCL classes 0/1/3/8/9/10 and takes the per-pixel median.
 - Composites are cached at `cache/<aoi>/<YYYY-MM>/composite.tif` (uint16 reflectance × 10000, DEFLATE COG); a month is skipped downstream when its clear fraction is below 60 %.
 
+- Network reads that drop or stall (< 5 kB/s for 60 s) fail fast, and the whole composite is retried up to 3 times with freshly signed URLs; a composite with read holes is never cached.
+
+## Phase 2: labels and training tiles
+
+```bash
+# All AOIs' label months: composites -> WorldCover labels -> 256x256 tiles -> manifest/stats/report
+.venv/bin/python -m pipeline.tiles
+
+# One AOI, or just rebuild manifest, norm stats and report from tiles on disk
+.venv/bin/python -m pipeline.tiles --aoi rondonia
+.venv/bin/python -m pipeline.tiles --report-only
+```
+
+- `pipeline/labels.py` warps ESA WorldCover 2021 (class 10 = tree cover → 1) onto each composite's exact 10 m grid with nearest-neighbour, reading only the AOI window. Labels are cached at `cache/<aoi>/worldcover_2021.tif`.
+- Training composites come from **2021** (`label_months` per AOI in `config.py`) so imagery matches the label year; pairing 2021 labels with later imagery would label recent clearings as forest.
+- Hand-corrected labels: drop a GeoTIFF at `labels/overrides/<aoi>.tif` (0/1, 255 = keep WorldCover); it is reprojected onto the grid and applied last.
+- `pipeline/tiles.py` cuts 7-channel inputs (six bands + NDVI) into 256×256 tiles with stride 256, drops tiles with > 10 % NaN pixels, fills remaining NaN with the channel mean, and saves `X_*.npy` (float16) / `Y_*.npy` (uint8) under `tiles/<aoi>/<month>/`.
+- Splits are by **region** (`split` per AOI), never per tile. Outputs: `tiles/manifest.csv`, `models/norm_stats.json` (per-channel mean/std from the train split only) and `docs/class_balance.md`.
+
 ## Data attributions
 
 Contains modified Copernicus Sentinel data (ESA), accessed via Microsoft Planetary Computer.
+ESA WorldCover 2021 v200 © ESA WorldCover project, licensed CC BY 4.0.
