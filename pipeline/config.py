@@ -33,6 +33,7 @@ NDVI_EPS = 1e-6
 RESOLUTION_M = 10
 MAX_SCENE_CLOUD = 20  # eo:cloud_cover upper bound, percent
 MAX_SCENES = 6  # least-cloudy scenes per month; caps bytes read, plenty for a median
+FETCH_ATTEMPTS = 3  # whole-composite retries after a dropped or stalled HTTP read
 MIN_CLEAR_FRACTION = 0.6  # skip the month below this
 DASK_CHUNK = 2048
 
@@ -51,6 +52,8 @@ SIMPLIFY_M = 5.0
 ROOT = Path(__file__).resolve().parents[1]
 CACHE_DIR = ROOT / "cache"
 TILES_DIR = ROOT / "tiles"
+LABEL_OVERRIDES_DIR = ROOT / "labels" / "overrides"  # hand-corrected <aoi>.tif (0/1, 255=keep)
+REPORTS_DIR = ROOT / "docs"
 MODELS_DIR = ROOT / "models"
 WEB_DATA_DIR = ROOT / "web" / "public" / "data"
 NORM_STATS_PATH = MODELS_DIR / "norm_stats.json"
@@ -66,7 +69,8 @@ class AOI:
 
     ``bbox`` is (min_lon, min_lat, max_lon, max_lat); ``epsg`` is the local UTM zone;
     ``months_skip`` lists calendar months (1-12) that are too cloudy to be worth fetching;
-    ``split`` is the region-level train/val/test assignment; ``demo`` AOIs appear on the site.
+    ``split`` is the region-level train/val/test assignment; ``demo`` AOIs appear on the site;
+    ``label_months`` are clear months in the WorldCover label year used to build training tiles.
     """
 
     id: str
@@ -76,6 +80,7 @@ class AOI:
     months_skip: tuple[int, ...] = ()
     split: Split = "train"
     demo: bool = False
+    label_months: tuple[str, ...] = ()
 
     @property
     def center(self) -> tuple[float, float]:
@@ -94,6 +99,7 @@ AOIS: dict[str, AOI] = {
             epsg=32644,
             months_skip=(6, 7, 8, 9),
             split="test",
+            label_months=("2021-01", "2021-04"),
             demo=True,
         ),
         AOI(
@@ -103,6 +109,7 @@ AOIS: dict[str, AOI] = {
             epsg=32720,
             months_skip=(12, 1, 2, 3),
             split="train",
+            label_months=("2021-07", "2021-08"),
             demo=True,
         ),
         AOI(
@@ -112,6 +119,7 @@ AOIS: dict[str, AOI] = {
             epsg=32721,
             months_skip=(12, 1, 2, 3),
             split="train",
+            label_months=("2021-06", "2021-08"),
         ),
         AOI(
             id="kalimantan",
@@ -120,6 +128,7 @@ AOIS: dict[str, AOI] = {
             epsg=32749,
             months_skip=(11, 12, 1, 2, 3, 4),
             split="train",
+            label_months=("2021-06", "2021-07"),
         ),
         AOI(
             id="western_ghats",
@@ -128,6 +137,7 @@ AOIS: dict[str, AOI] = {
             epsg=32643,
             months_skip=(6, 7, 8, 9),
             split="val",
+            label_months=("2021-01", "2021-02"),
         ),
     )
 }
