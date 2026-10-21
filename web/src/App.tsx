@@ -2,12 +2,14 @@ import { useCallback, useEffect, useState } from "react";
 
 import ClearedLayer from "./components/ClearedLayer";
 import DateRangeSlider from "./components/DateRangeSlider";
+import ForestLayer from "./components/ForestLayer";
+import LayerToggles, { type Layers } from "./components/LayerToggles";
 import MapView from "./components/MapView";
 import Panel from "./components/Panel";
 import PatchPopup from "./components/PatchPopup";
 import RegionPicker from "./components/RegionPicker";
 import { useAoiData } from "./hooks/useAoiData";
-import { getJson } from "./lib/data";
+import { getJson, rasterUrl } from "./lib/data";
 import type { Aoi, ClearedFeature } from "./lib/types";
 
 export default function App() {
@@ -15,6 +17,7 @@ export default function App() {
   const [aoiId, setAoiId] = useState<string>("");
   const [range, setRange] = useState<{ before: string; after: string }>({ before: "", after: "" });
   const [error, setError] = useState<string | null>(null);
+  const [layers, setLayers] = useState<Layers>({ cleared: true, forest: false, swipe: false });
   const [selected, setSelected] = useState<{ feature: ClearedFeature; at: [number, number] } | null>(null);
 
   useEffect(() => {
@@ -23,7 +26,7 @@ export default function App() {
         setAois(list);
         setAoiId((id) => id || list[0]?.id || "");
       })
-      .catch((e: unknown) => setError(String(e)));
+      .catch((e: unknown) => setError(`Could not load regions: ${String(e)}`));
   }, []);
 
   const aoi = aois.find((a) => a.id === aoiId) ?? null;
@@ -42,13 +45,16 @@ export default function App() {
   return (
     <div className="relative h-full w-full">
       <MapView aoi={aoi}>
-        <ClearedLayer features={data.features} onSelect={onSelect} />
+        {aoi && layers.forest && range.after && (
+          <ForestLayer url={rasterUrl(aoi, range.after, "forest")} onError={setError} />
+        )}
+        {layers.cleared && <ClearedLayer features={data.features} onSelect={onSelect} />}
         {selected && (
           <PatchPopup feature={selected.feature} position={selected.at} onClose={() => setSelected(null)} />
         )}
       </MapView>
       <Panel>
-        {error && <p role="alert" className="text-sm text-red-300">Could not load regions: {error}</p>}
+        {error && <p role="alert" className="text-sm text-red-300">{error}</p>}
         {aois.length > 0 && <RegionPicker aois={aois} value={aoiId} onChange={setAoiId} />}
         {aoi && (
           <DateRangeSlider
@@ -58,6 +64,7 @@ export default function App() {
             onChange={(before, after) => setRange({ before, after })}
           />
         )}
+        {aoi && <LayerToggles value={layers} onChange={setLayers} />}
       </Panel>
     </div>
   );

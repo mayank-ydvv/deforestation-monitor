@@ -24,9 +24,14 @@ export async function getJson<T>(path: string, signal?: AbortSignal): Promise<T>
   return data;
 }
 
-/** URL of a raster for one AOI month: forest COG or RGB XYZ tile template. */
+/**
+ * Absolute URL of a raster for one AOI month: forest COG or RGB XYZ tile template.
+ * Absolute because georaster fetches from a Web Worker, which cannot resolve "/data/...".
+ */
 export function rasterUrl(aoi: Aoi, month: string, kind: "forest" | "rgb"): string {
   const base = aoi.raster_base || DATA_ROOT;
   const tail = kind === "forest" ? "forest.tif" : "rgb/{z}/{x}/{y}.png";
-  return `${base}${aoi.id}/${month}/${tail}`;
+  const url = `${base}${aoi.id}/${month}/${tail}`;
+  // Keep "{z}/{x}/{y}" literal: URL() would percent-encode the braces.
+  return /^https?:\/\//.test(url) ? url : `${window.location.origin}${url.startsWith("/") ? "" : "/"}${url}`;
 }
