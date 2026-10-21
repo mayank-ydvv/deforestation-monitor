@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 
 import MapView from "./components/MapView";
 import Panel from "./components/Panel";
+import RegionPicker from "./components/RegionPicker";
 import { getJson } from "./lib/data";
 import type { Aoi } from "./lib/types";
 
@@ -26,7 +27,7 @@ export default function App() {
       <MapView aoi={aoi} />
       <Panel>
         {error && <p role="alert" className="text-sm text-red-300">Could not load regions: {error}</p>}
-        {aoi && <p className="text-sm text-slate-300">{aoi.name}</p>}
+        {aois.length > 0 && <RegionPicker aois={aois} value={aoiId} onChange={setAoiId} />}
       </Panel>
     </div>
   );
