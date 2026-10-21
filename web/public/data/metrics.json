@@ -61,5 +61,22 @@
   "label_source": "ESA WorldCover 2021 (class 10)",
   "model": "unet_r34.onnx",
   "generated": "2026-10-21",
-  "run": "Kaggle train1b242553f7, T4, 30 epochs (best = 30), train = rondonia + mato_grosso + prey_lang + kanha"
+  "run": "Kaggle train1b242553f7, T4, 30 epochs (best = 30), train = rondonia + mato_grosso + prey_lang + kanha",
+  "change_validation": {
+    "hasdeo 2025-01->2026-01": {
+      "t1": "2025-01",
+      "t2": "2026-01",
+      "hansen_years": [
+        2025
+      ],
+      "pixel_precision": 0.7252,
+      "pixel_recall": 0.8005,
+      "patch_precision": 0.3939,
+      "patches": 33,
+      "detected_ha": 164.9,
+      "hansen_loss_ha": 154.6,
+      "hansen_loss_ha_over_min_area": 149.2
+    }
+  },
+  "change_validation_source": "Hansen/UMD Global Forest Change GFC-2025-v1.13"
 }

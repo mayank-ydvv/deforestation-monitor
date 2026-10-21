@@ -1,0 +1,39 @@
+[
+ {
+  "id": "hasdeo",
+  "name": "Hasdeo Arand, Chhattisgarh (India)",
+  "bbox": [
+   82.66,
+   22.71,
+   82.96,
+   22.97
+  ],
+  "center": [
+   22.84,
+   82.81
+  ],
+  "months": [
+   "2025-01",
+   "2026-01"
+  ],
+  "compare": "yoy",
+  "raster_base": ""
+ },
+ {
+  "id": "rondonia",
+  "name": "Jaci-Paran\u00e1, Rond\u00f4nia (Brazil)",
+  "bbox": [
+   -64.4,
+   -9.6,
+   -64.0,
+   -9.24
+  ],
+  "center": [
+   -9.42,
+   -64.2
+  ],
+  "months": [],
+  "compare": "consecutive",
+  "raster_base": ""
+ }
+]
