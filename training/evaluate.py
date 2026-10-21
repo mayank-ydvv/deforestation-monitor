@@ -77,7 +77,11 @@ def region_counts(
     batch_size: int = cfg.INFER_BATCH,
     thr: float = cfg.PROB_THR,
 ) -> dict[str, dict]:
-    """Per-region {split, n_tiles, counts[4]} from batched ONNX predictions."""
+    """Per-region {split, n_tiles, counts[4], months: {month: counts[4]}} from ONNX predictions.
+
+    Month-level counts matter: a model can do well on leaf-on imagery and fail on leaf-off
+    imagery of the same forest, which a single per-region number hides.
+    """
     data = TileDataset(manifest, splits, norm_stats, root=root)
     out: dict[str, dict] = {}
     for start in range(0, len(data), batch_size):
@@ -89,10 +93,14 @@ def region_counts(
         for j, i in enumerate(idx):
             row = data.rows[i]
             entry = out.setdefault(
-                row["region"], {"split": row["split"], "n_tiles": 0, "counts": np.zeros(4, "int64")}
+                row["region"],
+                {"split": row["split"], "n_tiles": 0, "counts": np.zeros(4, "int64"), "months": {}},
             )
+            counts = confusion(prob[j], y[j], thr)
             entry["n_tiles"] += 1
-            entry["counts"] += confusion(prob[j], y[j], thr)
+            entry["counts"] += counts
+            month = entry["months"].setdefault(row["month"], np.zeros(4, "int64"))
+            month += counts
     return out
 
 
@@ -109,7 +117,14 @@ def build_metrics(per_region: dict[str, dict], headline_split: str = "test", **m
         **round4(scores(pooled)),
         "evaluated_on": headline_split,
         "per_region": {
-            name: {"split": r["split"], "n_tiles": r["n_tiles"], **round4(scores(r["counts"]))}
+            name: {
+                "split": r["split"],
+                "n_tiles": r["n_tiles"],
+                **round4(scores(r["counts"])),
+                "months": {
+                    month: round4(scores(c)) for month, c in sorted(r.get("months", {}).items())
+                },
+            }
             for name, r in sorted(per_region.items())
         },
         **meta,

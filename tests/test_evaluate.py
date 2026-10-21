@@ -48,6 +48,7 @@ def test_region_counts_and_metrics(tile_root):  # noqa: F811
     assert metrics["iou"] == 1.0  # channel 0 mirrors the label in the fixture
     assert metrics["evaluated_on"] == "val" and metrics["model"] == "fake.onnx"
     assert set(metrics["per_region"]) == {"r0", "r1", "r2"}
+    assert metrics["per_region"]["r2"]["months"]["2021-01"]["iou"] == 1.0  # per-month scores
 
 
 def test_build_metrics_requires_headline_split():
